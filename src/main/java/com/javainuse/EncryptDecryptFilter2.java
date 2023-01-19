@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 
-@Component
+//@Component
 public class EncryptDecryptFilter2 implements GlobalFilter, Ordered {
 
     final Logger logger = LoggerFactory.getLogger(LoggingGlobalPreFilter.class);
