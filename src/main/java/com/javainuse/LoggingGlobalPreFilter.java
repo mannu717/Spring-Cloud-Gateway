@@ -3,6 +3,7 @@ package com.javainuse;
 import com.javainuse.dto.PersonDataResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -16,9 +17,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.server.HandlerStrategies;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Signal;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.javainuse.logger.CustomLogger.logOnNext;
 
 @Component
 public class LoggingGlobalPreFilter implements GlobalFilter, Ordered {
@@ -41,22 +45,30 @@ public class LoggingGlobalPreFilter implements GlobalFilter, Ordered {
 
         ServerHttpRequest exchangeRequest = exchange.getRequest();
         Optional<String> profile_id = exchangeRequest.getHeaders().get("PROFILE_ID").stream().findFirst();
+        //Optional<String> requestIdOptional = exchangeRequest.getHeaders().get("X-REQUEST-ID").stream().findFirst();
+        //String requestId = requestIdOptional.orElse(UUID.randomUUID().toString());
         String auth = exchangeRequest.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         return getPersonId(profile_id)
-                .contextWrite(context -> context.put("auth", auth))
+                .contextWrite(context -> {
+                    context = context.put("auth", auth);
+                    return context;
+                })
                 .flatMap(personId -> {
                     logger.info("personId: {}", personId);
 
-                    ServerHttpRequest request = exchangeRequest.mutate().header(HttpHeaders.AUTHORIZATION, "Bearer token").build();
+                    ServerHttpRequest request = exchangeRequest.mutate()
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer token")
+                            .build();
                     return chain.filter(exchange.mutate().request(request).build());
                 }).onErrorResume(throwable -> {
                     ServerHttpRequest request = exchangeRequest.mutate().header(HttpHeaders.AUTHORIZATION, "Bearer token").build();
                     return chain.filter(exchange.mutate().request(request).build());
-                });
+                }).doOnTerminate(MDC::clear);
     }
 
     private Mono<String> getPersonId(Optional<String> profile_id) {
         if (profile_id.isPresent()) {
+            logOnNext(s -> logger.debug((String) s)).accept(Signal.next("Testing logger"));
             String profileId = profile_id.get();
             return webClient.get().uri("http://localhost:8081/test/person/" + profileId)
                     .accept(MediaType.APPLICATION_JSON)

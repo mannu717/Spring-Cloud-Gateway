@@ -4,6 +4,7 @@ logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     reactor.netty.http.client: DEBUG
+
 spring:
   cloud:
     gateway:
@@ -22,3 +23,10 @@ spring:
           uri: http://localhost:8082/
           predicates:
             - Path=/consumer/**
+        - id: after_route
+          uri: http://localhost:8081/
+          predicates:
+            - Method=POST
+            - Path=/authenticate
+          filters:
+            - MyFilter
